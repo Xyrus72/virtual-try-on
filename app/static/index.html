@@ -1,0 +1,152 @@
+<!doctype html>
+<html lang="en">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1">
+  <title>FitRoom · Virtual Try-On</title>
+  <link rel="preconnect" href="https://fonts.googleapis.com">
+  <link href="https://fonts.googleapis.com/css2?family=Fraunces:opsz,wght@9..144,500;9..144,600&family=Inter:wght@400;500;600&display=swap" rel="stylesheet">
+  <link rel="stylesheet" href="/static/styles.css?v=2">
+</head>
+<body>
+  <header class="topbar">
+    <div class="brand">
+      <span class="logo" aria-hidden="true">
+        <svg viewBox="0 0 24 24" width="22" height="22"><path d="M8 3 4 6l2 4 2-1v12h8V9l2 1 2-4-4-3a4 4 0 0 1-8 0Z" fill="none" stroke="currentColor" stroke-width="1.6" stroke-linejoin="round"/></svg>
+      </span>
+      <span class="brand-name">FitRoom</span>
+      <span class="brand-sub">virtual try-on</span>
+    </div>
+    <div id="status" class="status" title="Model status"><span class="dot"></span><span id="statusText">Starting…</span></div>
+  </header>
+
+  <main class="studio">
+    <!-- STEP 1: PERSON -->
+    <section class="panel" id="personPanel">
+      <div class="panel-head">
+        <span class="step">1</span>
+        <h2>Your photo</h2>
+        <div class="head-actions">
+          <button class="ghost sm" id="cameraBtn" type="button">Camera</button>
+          <label class="ghost sm file-btn">Upload<input type="file" id="personFile" accept="image/*" hidden></label>
+        </div>
+      </div>
+      <div class="stage" id="personStage">
+        <div class="drop" id="personDrop">
+          <p class="drop-title">Drop a full or half-body photo</p>
+          <p class="drop-hint">Front-facing, good light, arms not covering the outfit</p>
+        </div>
+        <div class="canvas-wrap" id="personWrap" hidden>
+          <img id="personImg" alt="Your photo">
+          <canvas id="maskCanvas"></canvas>
+          <video id="cameraVideo" playsinline muted hidden></video>
+        </div>
+      </div>
+      <div class="mask-tools" id="maskTools" hidden>
+        <button class="ghost sm" id="autoMaskBtn" type="button">Show auto mask</button>
+        <div class="seg" role="group" aria-label="Brush">
+          <button class="sm" data-brush="add" type="button" aria-pressed="true">Paint</button>
+          <button class="sm" data-brush="erase" type="button" aria-pressed="false">Erase</button>
+        </div>
+        <input type="range" id="brushSize" min="8" max="120" value="40" aria-label="Brush size">
+        <button class="ghost sm" id="clearMaskBtn" type="button">Reset</button>
+      </div>
+      <p class="tip" id="maskTip">Optional: <b>Show auto mask</b> to see which area will be replaced, then paint or erase to fine-tune.</p>
+      <h3 class="mini-title">Or pick a model</h3>
+      <div class="thumbs people" id="peopleGrid"></div>
+    </section>
+
+    <!-- STEP 2: GARMENT -->
+    <section class="panel" id="garmentPanel">
+      <div class="panel-head">
+        <span class="step">2</span>
+        <h2>Garment</h2>
+        <div class="head-actions">
+          <label class="ghost sm file-btn">Upload<input type="file" id="garmentFile" accept="image/*" hidden></label>
+        </div>
+      </div>
+      <div class="seg wide" role="tablist" id="typeTabs">
+        <button data-type="upper" aria-pressed="true" type="button">Top</button>
+        <button data-type="lower" aria-pressed="false" type="button">Bottom</button>
+        <button data-type="overall" aria-pressed="false" type="button">Dress / Full</button>
+      </div>
+      <div class="garment-preview" id="garmentPreview">
+        <p class="drop-title">Drop a garment photo</p>
+        <p class="drop-hint">Flat-lay or product shot on a plain background works best</p>
+      </div>
+      <div class="thumbs garments" id="garmentGrid"></div>
+    </section>
+
+    <!-- STEP 3: RESULT -->
+    <section class="panel result-panel" id="resultPanel">
+      <div class="panel-head">
+        <span class="step">3</span>
+        <h2>Try it on</h2>
+      </div>
+      <div class="result-stage" id="resultStage">
+        <div class="empty" id="resultEmpty">
+          <svg viewBox="0 0 24 24" width="40" height="40" aria-hidden="true"><path d="M8 3 4 6l2 4 2-1v12h8V9l2 1 2-4-4-3a4 4 0 0 1-8 0Z" fill="none" stroke="currentColor" stroke-width="1.2" stroke-linejoin="round"/></svg>
+          <p>Your look appears here</p>
+        </div>
+        <div class="compare" id="compare" hidden>
+          <img id="afterImg" alt="Try-on result">
+          <div class="before-clip" id="beforeClip"><img id="beforeImg" alt="Original photo"></div>
+          <div class="handle" id="handle"><span></span></div>
+          <span class="tag tag-l">Before</span><span class="tag tag-r">After</span>
+        </div>
+        <div class="progress" id="progress" hidden>
+          <div class="bar"><i id="progressBar"></i></div>
+          <p id="progressText">Working…</p>
+        </div>
+      </div>
+      <div class="actions">
+        <button class="primary" id="goBtn" type="button" disabled>Try it on</button>
+        <button class="ghost" id="rerollBtn" type="button" disabled title="Same inputs, new variation">New variation</button>
+        <a class="ghost btn" id="downloadBtn" download hidden>Download</a>
+      </div>
+      <p class="meta" id="resultMeta"></p>
+      <details class="settings">
+        <summary>Settings</summary>
+        <div class="field">
+          <label for="steps">Quality steps <output id="stepsOut">50</output></label>
+          <input type="range" id="steps" min="20" max="100" step="5" value="50">
+          <small>More steps = more detail, slower. 30 is a fast preview.</small>
+        </div>
+        <div class="field">
+          <label for="guidance">Garment adherence <output id="guidanceOut">2.5</output></label>
+          <input type="range" id="guidance" min="1" max="5" step="0.1" value="2.5">
+          <small>Higher follows the garment more strictly; too high adds artifacts.</small>
+        </div>
+        <div class="field row">
+          <label for="seed">Seed</label>
+          <input type="number" id="seed" value="-1" min="-1" step="1">
+          <small>-1 = random</small>
+        </div>
+        <label class="check"><input type="checkbox" id="keepOriginal" checked> Keep original photo quality (paste result into full-resolution photo)</label>
+      </details>
+    </section>
+  </main>
+
+  <section class="history">
+    <div class="history-head">
+      <h2>Your looks</h2>
+      <span class="count" id="historyCount"></span>
+    </div>
+    <div class="history-strip" id="historyStrip"></div>
+  </section>
+
+  <div class="toast" id="toast" role="status" aria-live="polite"></div>
+
+  <div class="lightbox" id="lightbox" hidden>
+    <button class="close" id="lbClose" aria-label="Close" type="button">×</button>
+    <img id="lbImg" alt="">
+    <div class="lb-actions">
+      <a class="ghost btn" id="lbDownload" download>Download</a>
+      <button class="ghost" id="lbReuse" type="button">Use this photo again</button>
+      <button class="ghost danger" id="lbDelete" type="button">Delete</button>
+    </div>
+  </div>
+
+  <script src="/static/app.js?v=2"></script>
+</body>
+</html>

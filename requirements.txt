@@ -1,0 +1,30 @@
+# torch/torchvision come from https://download.pytorch.org/whl/cu128 (see setup.ps1)
+accelerate
+diffusers==0.31.0
+transformers==4.46.3
+huggingface_hub<1
+numpy<2
+opencv-python
+pillow
+PyYAML
+scipy
+scikit-image
+tqdm
+peft
+sentencepiece
+protobuf
+# detectron2 (pure-python use for DensePose) deps
+fvcore
+iopath
+cloudpickle
+omegaconf
+pycocotools
+av
+matplotlib
+termcolor
+yacs
+tabulate
+# web app
+fastapi
+uvicorn[standard]
+python-multipart

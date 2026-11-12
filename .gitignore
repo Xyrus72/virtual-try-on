@@ -1,0 +1,9 @@
+.venv/
+models/
+outputs/
+runtime/
+third_party/
+gallery/
+.claude/
+__pycache__/
+*.pyc
