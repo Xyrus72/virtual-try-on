@@ -2,6 +2,21 @@
 
 Upload a photo of yourself (or take one with the camera), pick a top, bottom or dress, and FitRoom generates a photo of you wearing it. Everything runs locally on your GPU. It's free and nothing gets uploaded anywhere.
 
+## System requirements
+
+| | Minimum | Recommended |
+|---|---|---|
+| GPU | NVIDIA, 8 GB VRAM (RTX 2060 Super / 3060 / 4060) | NVIDIA 12–16 GB VRAM (RTX 3060 12GB, 4060 Ti 16GB, 5060 Ti 16GB) |
+| GPU driver | Recent NVIDIA driver (R570+, needed for CUDA 12.8 / RTX 50) | Latest Game Ready / Studio driver |
+| RAM | 16 GB | 16–32 GB |
+| Disk | ~15 GB free (models ~5.5 GB + Python env ~6 GB + code) | SSD |
+| OS | Windows 10/11 64-bit | Windows 11 |
+| Internet | Only for first-time setup (~9 GB download) | |
+| Phone (optional) | Any smartphone browser on the same Wi-Fi | |
+
+No NVIDIA GPU (AMD, Intel, Mac): not supported; it falls back to CPU, which takes many minutes per image.
+Close other GPU-heavy apps (games, Ollama models) while using it.
+
 ## Start
 
 Double-click **`run.bat`**. The browser opens at http://127.0.0.1:7860.
