@@ -6,7 +6,7 @@
   <title>FitRoom · Virtual Try-On</title>
   <link rel="preconnect" href="https://fonts.googleapis.com">
   <link href="https://fonts.googleapis.com/css2?family=Fraunces:opsz,wght@9..144,500;9..144,600&family=Inter:wght@400;500;600&display=swap" rel="stylesheet">
-  <link rel="stylesheet" href="/static/styles.css?v=2">
+  <link rel="stylesheet" href="/static/styles.css?v=3">
 </head>
 <body>
   <header class="topbar">
@@ -27,6 +27,7 @@
         <span class="step">1</span>
         <h2>Your photo</h2>
         <div class="head-actions">
+          <button class="ghost sm" id="phoneBtn" type="button">Phone camera</button>
           <button class="ghost sm" id="cameraBtn" type="button">Camera</button>
           <label class="ghost sm file-btn">Upload<input type="file" id="personFile" accept="image/*" hidden></label>
         </div>
@@ -137,6 +138,22 @@
 
   <div class="toast" id="toast" role="status" aria-live="polite"></div>
 
+  <div class="modal" id="phoneModal" hidden role="dialog" aria-modal="true" aria-labelledby="phoneTitle">
+    <div class="modal-card">
+      <button class="close-x" id="phoneClose" type="button" aria-label="Close">×</button>
+      <h2 id="phoneTitle">Use your phone camera</h2>
+      <ol class="steps">
+        <li>Connect the phone to the <b>same Wi-Fi</b> as this PC.</li>
+        <li>Scan this code with the phone camera.</li>
+        <li>Take a photo of yourself (or a garment). It appears here automatically.</li>
+      </ol>
+      <div class="qr" id="phoneQr"></div>
+      <p class="phone-url"><span id="phoneUrl"></span></p>
+      <p class="phone-warn" id="phoneWarn" hidden>Phone access is off: the server is running in local-only mode. Start the app with <b>run.bat</b> to enable it.</p>
+      <p class="phone-wait" id="phoneWait"><span class="dot"></span> Waiting for a photo from your phone…</p>
+    </div>
+  </div>
+
   <div class="lightbox" id="lightbox" hidden>
     <button class="close" id="lbClose" aria-label="Close" type="button">×</button>
     <img id="lbImg" alt="">
@@ -147,6 +164,6 @@
     </div>
   </div>
 
-  <script src="/static/app.js?v=2"></script>
+  <script src="/static/app.js?v=3"></script>
 </body>
 </html>

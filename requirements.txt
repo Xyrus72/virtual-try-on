@@ -28,3 +28,4 @@ tabulate
 fastapi
 uvicorn[standard]
 python-multipart
+qrcode

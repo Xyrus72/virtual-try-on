@@ -9,6 +9,18 @@ Loading the models takes about 30–60 s after start (the status pill at the top
 
 First time on a new machine, `run.bat` runs `setup.ps1` automatically. That step installs Python 3.11 + CUDA PyTorch and downloads about 9 GB.
 
+## Use your phone as the camera (no webcam needed)
+
+1. Start the app with `run.bat` and connect the phone to the **same Wi-Fi** as the PC.
+2. Click **Phone camera** on the PC and scan the QR code with your phone.
+3. On the phone, tap **Back camera** (someone holds the phone) or **Selfie camera** and take the photo.
+   It appears on the PC within a second or two. You can also send garment photos the same way.
+
+The phone uses its own camera app, so you get full photo quality and it works over plain Wi-Fi (no app install, no HTTPS).
+On the first start Windows asks whether Python may use the network: tick **Private networks** and allow it,
+otherwise the phone can't reach the PC. `run.bat` makes the app visible on your local network only
+(anyone on the same Wi-Fi could open it). Set `VTON_HOST=127.0.0.1` to switch phone access off.
+
 ## How to get the best results
 
 | Do | Avoid |

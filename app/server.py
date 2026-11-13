@@ -206,6 +206,67 @@ async def tryon(
     return {"job_id": job_id}
 
 
+# ---------------------------------------------------------------- phone camera relay
+# The PC page shows a QR code -> phone opens /phone on the same Wi-Fi -> phone takes a photo with
+# its native camera (file input with `capture`, works over plain HTTP) -> PC page picks it up.
+PHONE_DIR = ROOT / "runtime" / "phone"
+PHONE_DIR.mkdir(parents=True, exist_ok=True)
+phone_inbox: dict[str, dict] = {}
+
+
+def _check_session(session: str) -> None:
+    if not (8 <= len(session) <= 40 and session.isalnum()):
+        raise HTTPException(400, "Bad session.")
+
+
+def _lan_ip() -> Optional[str]:
+    import socket
+    try:
+        with socket.socket(socket.AF_INET, socket.SOCK_DGRAM) as s:
+            s.connect(("10.255.255.255", 1))  # no packet is sent; just picks the LAN interface
+            return s.getsockname()[0]
+    except OSError:
+        return None
+
+
+@app.get("/api/phone/link")
+def phone_link(session: str) -> dict:
+    _check_session(session)
+    import qrcode
+    import qrcode.image.svg
+
+    host = os.environ.get("VTON_HOST", "127.0.0.1")
+    port = int(os.environ.get("VTON_PORT", "7860"))
+    ip = _lan_ip()
+    lan = host == "0.0.0.0" and ip is not None
+    url = f"http://{ip if lan else '127.0.0.1'}:{port}/phone?s={session}"
+    img = qrcode.make(url, image_factory=qrcode.image.svg.SvgPathImage, box_size=10, border=2)
+    return {"url": url, "lan": lan, "qr_svg": img.to_string(encoding="unicode")}
+
+
+@app.get("/phone")
+def phone_page() -> FileResponse:
+    return FileResponse(STATIC / "phone.html")
+
+
+@app.post("/api/phone/{session}/{kind}")
+async def phone_upload(session: str, kind: str, photo: UploadFile = File(...)) -> dict:
+    _check_session(session)
+    if kind not in ("person", "garment"):
+        raise HTTPException(400, "kind must be person or garment")
+    img = await _read_image(photo, None, kind, keep_alpha=False)
+    name = f"{session}_{kind}_{int(time.time() * 1000)}.jpg"
+    img.save(PHONE_DIR / name, quality=93)
+    phone_inbox.setdefault(session, {})[kind] = {"url": f"/phone-files/{name}", "t": time.time()}
+    return {"ok": True}
+
+
+@app.get("/api/phone/{session}")
+def phone_poll(session: str) -> dict:
+    _check_session(session)
+    return phone_inbox.get(session, {})
+
+
 @app.get("/api/jobs/{job_id}")
 def job(job_id: str) -> dict:
     j = jobs.get(job_id)
@@ -241,6 +302,7 @@ def delete_history(day: str, stem: str) -> dict:
 app.mount("/gallery", StaticFiles(directory=GALLERY, check_dir=False), name="gallery")
 app.mount("/outputs", StaticFiles(directory=OUTPUTS), name="outputs")
 app.mount("/static", StaticFiles(directory=STATIC), name="static")
+app.mount("/phone-files", StaticFiles(directory=PHONE_DIR), name="phone-files")
 
 
 @app.get("/")

@@ -265,6 +265,57 @@
   }
   $("cameraBtn").addEventListener("click", toggleCamera);
 
+  // ------------------------------------------------------------ phone camera (QR relay over Wi-Fi)
+  const phoneSession = (() => {
+    let s = null;
+    try { s = localStorage.getItem("fitroomPhone"); } catch {}
+    if (!s || !/^[A-Za-z0-9]{8,40}$/.test(s)) {
+      s = Array.from(crypto.getRandomValues(new Uint8Array(12)), (b) => b.toString(16).padStart(2, "0")).join("");
+      try { localStorage.setItem("fitroomPhone", s); } catch {}
+    }
+    return s;
+  })();
+  const phoneSeen = { person: 0, garment: 0 };
+  let phonePollTimer = null;
+
+  async function openPhone() {
+    $("phoneModal").hidden = false;
+    try {
+      const link = await (await api(`/api/phone/link?session=${phoneSession}`)).json();
+      $("phoneQr").innerHTML = link.qr_svg; // server-generated SVG (our own endpoint)
+      $("phoneUrl").textContent = link.url;
+      $("phoneWarn").hidden = link.lan;
+    } catch (e) { toast(`Could not create phone link: ${e.message}`, true); }
+    startPhonePolling();
+  }
+  function closePhone() { $("phoneModal").hidden = true; }
+
+  function startPhonePolling() {
+    if (phonePollTimer) return;
+    const tick = async () => {
+      try {
+        const inbox = await (await api(`/api/phone/${phoneSession}`)).json();
+        for (const kind of ["person", "garment"]) {
+          const item = inbox[kind];
+          if (!item || item.t <= phoneSeen[kind]) continue;
+          const first = phoneSeen[kind] === 0 && performance.now() < 3000; // ignore stale photo from a previous page load
+          phoneSeen[kind] = item.t;
+          if (first) continue;
+          const blob = await (await api(item.url)).blob();
+          const entry = { blob, url: URL.createObjectURL(blob) };
+          if (kind === "person") setPerson(entry); else setGarment(entry);
+          closePhone();
+          toast(kind === "person" ? "Photo received from your phone." : "Garment received from your phone.");
+        }
+      } catch {}
+      phonePollTimer = setTimeout(tick, 1500);
+    };
+    tick();
+  }
+  $("phoneBtn").addEventListener("click", openPhone);
+  $("phoneClose").addEventListener("click", closePhone);
+  $("phoneModal").addEventListener("click", (e) => { if (e.target.id === "phoneModal") closePhone(); });
+
   // ------------------------------------------------------------ garment
   function setGarment(g) {
     if (state.garment?.blob) URL.revokeObjectURL(state.garment.url);
@@ -436,7 +487,7 @@
   const closeLb = () => ($("lightbox").hidden = true);
   $("lbClose").addEventListener("click", closeLb);
   $("lightbox").addEventListener("click", (e) => { if (e.target.id === "lightbox") closeLb(); });
-  document.addEventListener("keydown", (e) => { if (e.key === "Escape") closeLb(); });
+  document.addEventListener("keydown", (e) => { if (e.key === "Escape") { closeLb(); closePhone(); } });
   $("lbReuse").addEventListener("click", () => {
     const h = state.lbItem;
     setPerson({ ref: h.person_url.slice(1), url: h.person_url });

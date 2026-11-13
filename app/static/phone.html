@@ -1,0 +1,100 @@
+<!doctype html>
+<html lang="en">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover">
+  <title>FitRoom · Phone camera</title>
+  <style>
+    :root { --bg:#141210; --panel:#1d1a17; --ink:#f3eee7; --ink2:#bdb4a8; --line:#322d28; --accent:#e07a4c; --ok:#4caf7a; --err:#ff8a7a; }
+    * { box-sizing: border-box; }
+    body { margin:0; background:var(--bg); color:var(--ink); font:16px/1.45 system-ui,-apple-system,"Segoe UI",sans-serif;
+           padding: max(20px, env(safe-area-inset-top)) 16px 32px; min-height:100vh; }
+    h1 { font: 600 24px/1.2 Georgia, serif; margin: 0 0 4px; }
+    p.sub { color: var(--ink2); margin: 0 0 20px; font-size: 14px; }
+    .card { background:var(--panel); border:1px solid var(--line); border-radius:16px; padding:16px; margin-bottom:14px; }
+    .card h2 { margin:0 0 4px; font-size:17px; }
+    .card p { margin:0 0 12px; color:var(--ink2); font-size:13.5px; }
+    .row { display:flex; gap:8px; }
+    label.btn { flex:1; display:flex; align-items:center; justify-content:center; text-align:center; min-height:52px;
+                border-radius:12px; font-weight:600; cursor:pointer; border:1px solid var(--line); padding:10px; }
+    label.primary { background:var(--accent); border-color:var(--accent); color:#1a0f08; }
+    input[type=file] { display:none; }
+    #status { text-align:center; min-height:24px; font-weight:600; margin-top:6px; }
+    #status.ok { color:var(--ok); } #status.err { color:var(--err); }
+    #preview { display:block; max-width:100%; max-height:45vh; margin:12px auto 0; border-radius:12px; }
+    .tips { color:var(--ink2); font-size:13px; padding-left:18px; margin:6px 0 0; }
+  </style>
+</head>
+<body>
+  <h1>FitRoom</h1>
+  <p class="sub">Photos you take here appear on your PC instantly.</p>
+
+  <div class="card">
+    <h2>Photo of you</h2>
+    <p>Full body for pants &amp; dresses. Ask someone to hold the phone, or lean it on something and use a timer.</p>
+    <div class="row">
+      <label class="btn primary">Back camera<input type="file" accept="image/*" capture="environment" data-kind="person"></label>
+      <label class="btn">Selfie camera<input type="file" accept="image/*" capture="user" data-kind="person"></label>
+    </div>
+    <div class="row" style="margin-top:8px">
+      <label class="btn">Choose from gallery<input type="file" accept="image/*" data-kind="person"></label>
+    </div>
+  </div>
+
+  <div class="card">
+    <h2>Photo of a garment</h2>
+    <p>Lay it flat on a plain surface, shoot from above.</p>
+    <div class="row">
+      <label class="btn">Take photo<input type="file" accept="image/*" capture="environment" data-kind="garment"></label>
+      <label class="btn">From gallery<input type="file" accept="image/*" data-kind="garment"></label>
+    </div>
+  </div>
+
+  <div id="status" role="status" aria-live="polite"></div>
+  <img id="preview" alt="" hidden>
+  <ul class="tips">
+    <li>Good light, plain background, stand straight facing the camera.</li>
+    <li>Keep the phone at chest height, about 2–3 m away for full body.</li>
+  </ul>
+
+  <script>
+    const session = new URLSearchParams(location.search).get("s") || "";
+    const st = document.getElementById("status");
+    const pv = document.getElementById("preview");
+    function say(msg, cls) { st.textContent = msg; st.className = cls || ""; }
+    if (!/^[A-Za-z0-9]{8,40}$/.test(session)) say("Open this page by scanning the QR code on your PC.", "err");
+
+    // Shrink big phone photos before sending (faster on Wi-Fi); keeps EXIF orientation applied.
+    async function shrink(file) {
+      try {
+        const bmp = await createImageBitmap(file, { imageOrientation: "from-image" });
+        const s = Math.min(1, 2048 / Math.max(bmp.width, bmp.height));
+        const c = document.createElement("canvas");
+        c.width = Math.round(bmp.width * s); c.height = Math.round(bmp.height * s);
+        c.getContext("2d").drawImage(bmp, 0, 0, c.width, c.height);
+        return await new Promise((r) => c.toBlob(r, "image/jpeg", 0.92));
+      } catch { return file; } // e.g. HEIC the browser can't decode: send the original
+    }
+
+    document.querySelectorAll("input[type=file]").forEach((inp) =>
+      inp.addEventListener("change", async () => {
+        const f = inp.files[0];
+        inp.value = "";
+        if (!f) return;
+        const kind = inp.dataset.kind;
+        say("Sending to PC…");
+        try {
+          const blob = await shrink(f);
+          pv.src = URL.createObjectURL(blob); pv.hidden = false;
+          const fd = new FormData();
+          fd.append("photo", blob, "photo.jpg");
+          const r = await fetch(`/api/phone/${session}/${kind}`, { method: "POST", body: fd });
+          if (!r.ok) throw new Error((await r.json().catch(() => ({}))).detail || r.statusText);
+          say(kind === "person" ? "Sent ✓ Your photo is on the PC." : "Sent ✓ Garment is on the PC.", "ok");
+          if (navigator.vibrate) navigator.vibrate(60);
+        } catch (e) { say("Failed: " + e.message, "err"); }
+      })
+    );
+  </script>
+</body>
+</html>
