@@ -82,7 +82,7 @@ def _worker() -> None:
             meta = {
                 "id": stem, "day": day, "created": time.time(), "cloth_type": p["cloth_type"],
                 "steps": p["steps"], "guidance": p["guidance"], "seed": res.seed,
-                "seconds": round(res.seconds, 1),
+                "seconds": round(res.seconds, 1), "warning": res.warning,
             }
             (out_dir / f"{stem}.json").write_text(json.dumps(meta))
             job.update(status="done", progress=1.0, message="Done", result=_urls(day, stem) | meta)
@@ -176,7 +176,8 @@ async def make_mask(person: Optional[UploadFile] = File(None), person_ref: Optio
         raise HTTPException(422, str(e))
     buf = io.BytesIO()
     mask.save(buf, "PNG")
-    return Response(buf.getvalue(), media_type="image/png")
+    headers = {"X-Warning": engine.last_warning} if engine.last_warning else None
+    return Response(buf.getvalue(), media_type="image/png", headers=headers)
 
 
 @app.post("/api/tryon")

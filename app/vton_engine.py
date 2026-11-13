@@ -51,6 +51,7 @@ class TryOnResult:
     mask: Image.Image           # mask used, at original resolution
     seed: int
     seconds: float
+    warning: Optional[str] = None
 
 
 def _offline_snapshot(repo_id: str, **kw) -> str:
@@ -130,6 +131,7 @@ class TryOnEngine:
             vae_scale_factor=8, do_normalize=False, do_binarize=True, do_convert_grayscale=True
         )
         self.load_seconds = 0.0
+        self.last_warning: Optional[str] = None
 
     # ------------------------------------------------------------------ loading
     def load(self) -> None:
@@ -199,7 +201,29 @@ class TryOnEngine:
         if dense.max() == 0:
             raise ValueError("No person detected in the photo. Use a clear, front-facing photo "
                              "with the body (at least the upper half) visible.")
+        self.last_warning = self._coverage_check(dense, cloth_type)
         return out["mask"]
+
+    @staticmethod
+    def _coverage_check(dense: np.ndarray, cloth_type: str) -> Optional[str]:
+        """Make sure the body part the garment goes on is actually in the photo.
+
+        Percentages are of the 768x1024 frame, from DensePose body-part labels.
+        Raises ValueError when the garment has nowhere to go; returns a warning when it will be cut short.
+        """
+        pct = lambda ids: float(np.isin(dense, ids).mean()) * 100  # noqa: E731
+        torso, thighs, shins = pct([1, 2]), pct([7, 8, 9, 10]), pct([11, 12, 13, 14])
+        if cloth_type == "upper" and torso < 2:
+            raise ValueError("Your upper body isn't clearly visible. Use a photo showing your chest and waist.")
+        if cloth_type in ("lower", "overall") and thighs < 1.5:
+            what = "Bottoms" if cloth_type == "lower" else "Dresses"
+            alt = " Choose 'Top' instead, or" if torso >= 2 else ""
+            raise ValueError(f"Your legs aren't in this photo, so there's nowhere to put the "
+                             f"{what.lower()}.{alt} take a full-body photo (head to feet).")
+        if cloth_type in ("lower", "overall") and shins < 0.5:
+            return ("Your photo ends around the knees, so long pants or dresses will come out "
+                    "shorter. A head-to-feet photo works best.")
+        return None
 
     def auto_mask(self, person: Image.Image, cloth_type: str) -> Image.Image:
         """Returns the clothing mask at the person photo's original resolution."""
@@ -244,8 +268,10 @@ class TryOnEngine:
 
         with self.lock, torch.inference_mode():
             report(0.05, "Detecting body & clothing")
+            warning = None
             if mask is None:
                 mask_m = self._auto_mask_model_space(person_m, cloth_type)
+                warning = self.last_warning
             else:
                 mask_m = frame.to_model(mask.convert("L").resize(person.size, Image.NEAREST), is_mask=True)
                 mask_m = mask_m.point(lambda v: 255 if v > 127 else 0)
@@ -291,7 +317,8 @@ class TryOnEngine:
             final = raw
             mask_full = mask_m
         report(1.0, "Done")
-        return TryOnResult(image=final, raw=raw, mask=mask_full, seed=seed, seconds=time.time() - t0)
+        return TryOnResult(image=final, raw=raw, mask=mask_full, seed=seed, seconds=time.time() - t0,
+                           warning=warning)
 
     @staticmethod
     def _is_nsfw_placeholder(img: Image.Image) -> bool:

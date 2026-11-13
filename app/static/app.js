@@ -161,7 +161,10 @@
       const fd = new FormData();
       appendImage(fd, "person", state.person);
       fd.append("cloth_type", state.type);
-      const blob = await (await api("/api/mask", { method: "POST", body: fd })).blob();
+      const resp = await api("/api/mask", { method: "POST", body: fd });
+      const warn = resp.headers.get("X-Warning");
+      if (warn) toast(warn);
+      const blob = await resp.blob();
       const img = await blobToImage(blob);
       const tmp = document.createElement("canvas");
       tmp.width = maskCanvas.width;
@@ -545,6 +548,7 @@
     dl.download = `fitroom_${r.id}.jpg`;
     dl.hidden = false;
     state.lastSeed = r.seed;
+    if (r.warning) toast(r.warning);
     $("resultMeta").textContent = `${r.seconds}s · ${r.steps} steps · seed ${r.seed}`;
   }
 
