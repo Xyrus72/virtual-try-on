@@ -227,43 +227,152 @@
     return new Promise((res) => out.toBlob(res, "image/png"));
   }
 
-  // ------------------------------------------------------------ camera
+  // ------------------------------------------------------------ laptop / USB camera
+  // Preview is mirrored like a mirror; the saved photo is not (so logos/text read correctly).
+  // A 3:4 guide shows exactly the part of the frame that is kept. Countdown lets you step back.
   let stream = null;
-  async function toggleCamera() {
-    const btn = $("cameraBtn");
-    const video = $("cameraVideo");
-    if (stream) { // capture
-      const c = document.createElement("canvas");
-      c.width = video.videoWidth; c.height = video.videoHeight;
-      c.getContext("2d").drawImage(video, 0, 0);
-      const blob = await new Promise((r) => c.toBlob(r, "image/jpeg", 0.95));
-      setPerson({ blob, url: URL.createObjectURL(blob) });
+  let countdown = null; // {cancel: bool}
+  const video = $("cameraVideo");
+
+  function cameraError(e) {
+    const n = e && e.name;
+    if (n === "NotAllowedError" || n === "SecurityError")
+      return "Camera permission is blocked. Click the camera icon in the address bar, allow it, then try again.";
+    if (n === "NotFoundError" || n === "OverconstrainedError")
+      return "No camera found on this PC. Use the Phone camera button instead.";
+    if (n === "NotReadableError" || n === "AbortError")
+      return "The camera is busy in another app (Zoom, Teams, Camera…). Close it and try again.";
+    return `Camera unavailable: ${e && e.message ? e.message : e}`;
+  }
+
+  async function openStream(deviceId) {
+    const base = { width: { ideal: 1920 }, height: { ideal: 1080 } };
+    const video = deviceId ? { ...base, deviceId: { exact: deviceId } } : { ...base, facingMode: "user" };
+    try {
+      return await navigator.mediaDevices.getUserMedia({ video, audio: false });
+    } catch (e) {
+      if (e.name === "OverconstrainedError") return navigator.mediaDevices.getUserMedia({ video: true, audio: false });
+      throw e;
+    }
+  }
+
+  async function fillDevices(activeId) {
+    try {
+      const cams = (await navigator.mediaDevices.enumerateDevices()).filter((d) => d.kind === "videoinput");
+      const sel = $("camDevice");
+      sel.replaceChildren(...cams.map((d, i) => {
+        const o = document.createElement("option");
+        o.value = d.deviceId;
+        o.textContent = d.label || `Camera ${i + 1}`;
+        o.selected = d.deviceId === activeId;
+        return o;
+      }));
+      sel.hidden = cams.length < 2;
+    } catch {}
+  }
+
+  function positionGuide() {
+    const box = $("cam");
+    const vw = video.videoWidth, vh = video.videoHeight;
+    if (!vw) return;
+    const ar = `${vw} / ${vh}`;
+    if (box.style.aspectRatio !== ar) box.style.aspectRatio = ar; // widescreen webcams fill the panel
+    if (!box.clientWidth) return;
+    const s = Math.min(box.clientWidth / vw, box.clientHeight / vh); // object-fit: contain
+    const dw = vw * s, dh = vh * s;
+    const gw = Math.min(dw, dh * 3 / 4), gh = Math.min(dh, dw * 4 / 3);
+    Object.assign($("camGuide").style, {
+      width: `${gw}px`, height: `${gh}px`,
+      left: `${(box.clientWidth - gw) / 2}px`, top: `${(box.clientHeight - gh) / 2}px`,
+    });
+  }
+  new ResizeObserver(positionGuide).observe($("cam"));
+  video.addEventListener("loadedmetadata", positionGuide);
+
+  async function startCamera(deviceId) {
+    if (!navigator.mediaDevices || !navigator.mediaDevices.getUserMedia) {
+      toast("The camera only works when the app is opened on this PC (http://127.0.0.1:7860). Use the Phone camera button instead.", true);
       return;
     }
+    const btn = $("cameraBtn");
+    btn.disabled = true;
     try {
-      stream = await navigator.mediaDevices.getUserMedia({ video: { width: { ideal: 1440 }, height: { ideal: 1920 } }, audio: false });
+      const s = await openStream(deviceId);
+      if (stream) stream.getTracks().forEach((t) => t.stop());
+      stream = s;
       video.srcObject = stream;
-      await video.play();
+      video.play().catch(() => {}); // don't block the UI on play(); muted inline video autoplays
       $("personDrop").hidden = true;
-      $("personWrap").hidden = false;
-      personImg.hidden = true;
-      maskCanvas.hidden = true;
-      video.hidden = false;
-      btn.textContent = "Capture";
-      btn.classList.add("primary");
-    } catch (e) { toast(`Camera unavailable: ${e.message}`, true); }
+      $("personWrap").hidden = true;
+      $("maskTools").hidden = true;
+      $("maskTip").hidden = true;
+      $("cam").hidden = false;
+      $("camBar").hidden = false;
+      positionGuide();
+      fillDevices(stream.getVideoTracks()[0].getSettings().deviceId);
+    } catch (e) {
+      toast(cameraError(e), true);
+    } finally { btn.disabled = false; }
   }
+
   function stopCamera() {
-    if (!stream) return;
-    stream.getTracks().forEach((t) => t.stop());
+    if (countdown) countdown.cancel = true;
+    countdown = null;
+    $("camCount").hidden = true;
+    if (stream) stream.getTracks().forEach((t) => t.stop());
     stream = null;
-    $("cameraVideo").hidden = true;
-    maskCanvas.hidden = false;
-    personImg.hidden = false;
-    $("cameraBtn").textContent = "Camera";
-    $("cameraBtn").classList.remove("primary");
+    video.srcObject = null;
+    $("cam").hidden = true;
+    $("camBar").hidden = true;
+    $("maskTip").hidden = false;
+    $("camShoot").disabled = false;
   }
-  $("cameraBtn").addEventListener("click", toggleCamera);
+
+  function cancelCamera() {
+    stopCamera();
+    const has = !!state.person;
+    $("personDrop").hidden = has;
+    $("personWrap").hidden = !has;
+    $("maskTools").hidden = !has;
+  }
+
+  async function shoot() {
+    if (!stream || countdown) return;
+    const secs = +$("camTimer").value;
+    const cd = (countdown = { cancel: false });
+    $("camShoot").disabled = true;
+    const count = $("camCount");
+    for (let i = secs; i > 0; i--) {
+      count.hidden = false;
+      count.textContent = i;
+      await new Promise((r) => setTimeout(r, 1000));
+      if (cd.cancel) return;
+    }
+    count.hidden = true;
+    countdown = null;
+    // capture the 3:4 area shown by the guide, un-mirrored, at full camera resolution
+    const vw = video.videoWidth, vh = video.videoHeight;
+    const cw = Math.round(Math.min(vw, vh * 3 / 4)), ch = Math.round(Math.min(vh, vw * 4 / 3));
+    const c = document.createElement("canvas");
+    c.width = cw; c.height = ch;
+    c.getContext("2d").drawImage(video, (vw - cw) / 2, (vh - ch) / 2, cw, ch, 0, 0, cw, ch);
+    const flash = $("camFlash");
+    flash.classList.add("on");
+    requestAnimationFrame(() => requestAnimationFrame(() => flash.classList.remove("on")));
+    const blob = await new Promise((r) => c.toBlob(r, "image/jpeg", 0.95));
+    setPerson({ blob, url: URL.createObjectURL(blob) }); // also stops the camera
+    toast("Photo taken. Pick a garment and press Try it on.");
+  }
+
+  $("cameraBtn").addEventListener("click", () => (stream ? shoot() : startCamera()));
+  $("camShoot").addEventListener("click", shoot);
+  $("camCancel").addEventListener("click", cancelCamera);
+  $("camDevice").addEventListener("change", (e) => startCamera(e.target.value));
+  document.addEventListener("keydown", (e) => {
+    if (!stream || e.target.matches("input, select, textarea")) return;
+    if (e.code === "Space") { e.preventDefault(); shoot(); }
+  });
+  window.addEventListener("pagehide", stopCamera);
 
   // ------------------------------------------------------------ phone camera (QR relay over Wi-Fi)
   const phoneSession = (() => {

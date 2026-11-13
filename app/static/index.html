@@ -6,7 +6,7 @@
   <title>FitRoom · Virtual Try-On</title>
   <link rel="preconnect" href="https://fonts.googleapis.com">
   <link href="https://fonts.googleapis.com/css2?family=Fraunces:opsz,wght@9..144,500;9..144,600&family=Inter:wght@400;500;600&display=swap" rel="stylesheet">
-  <link rel="stylesheet" href="/static/styles.css?v=3">
+  <link rel="stylesheet" href="/static/styles.css?v=4">
 </head>
 <body>
   <header class="topbar">
@@ -40,8 +40,24 @@
         <div class="canvas-wrap" id="personWrap" hidden>
           <img id="personImg" alt="Your photo">
           <canvas id="maskCanvas"></canvas>
-          <video id="cameraVideo" playsinline muted hidden></video>
         </div>
+        <div class="cam" id="cam" hidden>
+          <video id="cameraVideo" playsinline muted></video>
+          <div class="cam-guide" id="camGuide"><span>Stand inside the frame</span></div>
+          <div class="cam-count" id="camCount" hidden></div>
+          <div class="cam-flash" id="camFlash"></div>
+        </div>
+      </div>
+      <div class="cam-bar" id="camBar" hidden>
+        <select id="camDevice" aria-label="Camera"></select>
+        <select id="camTimer" aria-label="Timer">
+          <option value="0">No timer</option>
+          <option value="3">3 s timer</option>
+          <option value="5" selected>5 s timer</option>
+          <option value="10">10 s timer</option>
+        </select>
+        <button class="primary sm" id="camShoot" type="button">Take photo</button>
+        <button class="ghost sm" id="camCancel" type="button">Cancel</button>
       </div>
       <div class="mask-tools" id="maskTools" hidden>
         <button class="ghost sm" id="autoMaskBtn" type="button">Show auto mask</button>
@@ -164,6 +180,6 @@
     </div>
   </div>
 
-  <script src="/static/app.js?v=3"></script>
+  <script src="/static/app.js?v=6"></script>
 </body>
 </html>

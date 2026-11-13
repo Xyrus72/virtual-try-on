@@ -123,10 +123,9 @@ button:focus-visible, .btn:focus-visible, .file-btn:focus-within { outline: 2px 
 .drop-title { margin: 0; font-weight: 600; }
 .drop-hint { margin: 4px 0 0; color: var(--ink-3); font-size: 12.5px; }
 .canvas-wrap { position: relative; aspect-ratio: 3 / 4; background: var(--bg); }
-.canvas-wrap img, .canvas-wrap video { position: absolute; inset: 0; width: 100%; height: 100%; object-fit: contain; }
+.canvas-wrap img { position: absolute; inset: 0; width: 100%; height: 100%; object-fit: contain; }
 .canvas-wrap canvas { position: absolute; touch-action: none; opacity: .55; pointer-events: none; }
 .canvas-wrap.editing canvas { pointer-events: auto; cursor: crosshair; }
-.canvas-wrap video { width: 100%; height: 100%; object-fit: cover; background: #000; }
 .mask-tools { display: flex; align-items: center; gap: 8px; margin-top: 10px; flex-wrap: wrap; }
 .mask-tools input[type=range] { flex: 1; min-width: 80px; accent-color: var(--accent); }
 .tip { font-size: 12.5px; color: var(--ink-3); margin: 8px 0 0; }
@@ -238,3 +237,28 @@ button:focus-visible, .btn:focus-visible, .file-btn:focus-within { outline: 2px 
 .phone-warn { color: var(--err); font-size: 13px; margin: 10px 0 0; }
 .phone-wait { display: flex; align-items: center; justify-content: center; gap: 8px; font-size: 13px; color: var(--ink-2); margin: 12px 0 0; }
 .phone-wait .dot { width: 8px; height: 8px; border-radius: 50%; background: var(--accent); animation: pulse 1.4s infinite; }
+
+/* ---------- laptop camera ---------- */
+.cam { position: relative; aspect-ratio: 3 / 4; background: #000; overflow: hidden; border-radius: 12px; }
+/* contain = you see exactly what gets captured; mirrored like a mirror (the saved photo is not mirrored) */
+.cam video { position: absolute; inset: 0; width: 100%; height: 100%; object-fit: contain; transform: scaleX(-1); }
+.cam-guide {
+  position: absolute; border: 2px dashed rgba(255,255,255,.75); border-radius: 10px; pointer-events: none;
+  box-shadow: 0 0 0 9999px rgba(0,0,0,.35);
+}
+.cam-guide span {
+  position: absolute; top: 8px; left: 50%; transform: translateX(-50%); white-space: nowrap;
+  font-size: 11.5px; background: rgba(0,0,0,.55); color: #fff; padding: 3px 9px; border-radius: 99px;
+}
+.cam-count {
+  position: absolute; inset: 0; display: grid; place-items: center; color: #fff;
+  font: 600 96px/1 var(--display); text-shadow: 0 4px 24px rgba(0,0,0,.6); pointer-events: none;
+}
+.cam-flash { position: absolute; inset: 0; background: #fff; opacity: 0; pointer-events: none; transition: opacity .35s; }
+.cam-flash.on { opacity: .85; transition: none; }
+.cam-bar { display: flex; gap: 8px; margin-top: 10px; flex-wrap: wrap; align-items: center; }
+.cam-bar select {
+  border: 1px solid var(--line); background: var(--panel); border-radius: 8px; padding: 5px 8px; font-size: 12.5px;
+  max-width: 100%; min-width: 0; flex: 1 1 120px;
+}
+.cam-bar .primary { padding: 6px 14px; }
